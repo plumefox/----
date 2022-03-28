@@ -1,5 +1,16 @@
+# -*- coding: utf-8 -*-
+_version = "0.1"
+_updateDate = "2022/3/28"
+
 import threading
 import socket
+import subprocess
+
+
+upload_destination = ""
+port = 9999
+max_listenClient = 5
+
 def server_loop():
     global target
     # 没有定义target的情况下
@@ -19,16 +30,30 @@ def server_loop():
 
         client_thread = threading.Thread(target=client_handler,args=(client_socket,))
         client_thread.start()
-    
+
+def run_command(command):
+    command = command.rstrip() #删除尾部空格
+    #运行命令
+    try:
+        output = subprocess.check_output(command,stderr=subprocess.STDOUT,shell=True)
+
+    except Exception as e:
+        output = "failed to execute command.\r\n"
+        output += e
+        output = output.encode()
+
+    #返回命令结果
+    return output
+
 def client_handler(client_socket):
-    global upload
     global execute
     global command
+    
 
-    #如果给定了本地保存的地址
+    #如果给定了保存的地址
     if(len(upload_destination)):
         file_buffer = ""
-        #接收远程文件数据
+        #接收客户端的文件数据
         while True:
             data = client_socket.recv(1024)
             if not data:
@@ -42,15 +67,15 @@ def client_handler(client_socket):
             file_descriptor.close()
 
             information = "Successfully saved file to %s\r\n"%upload_destination
-
-            client_socket.send(information.encode())
         except:
             information = "Failed to saved file to %s\r\n"%upload_destination
-
+        finally:
             client_socket.send(information.encode())
+    
     if(len(execute)):
         output = run_command(execute)
         client_socket.send(output)
+    
     if command:
         while True:
             information = "<NETTOOLS:#> "
