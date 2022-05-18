@@ -6,20 +6,42 @@ import sys
 import getopt
 
 # Extensions
-import uclient
-# 后面如果要带参数需要加冒号
+import server_connect
+# 长格式如果加参数要加= 如 output= 
 opt_list = ["help","listen","execute","target","port","command","upload","debug"]
+# 后面1个冒号表示必需跟一个参数 参数紧跟在选项后或者以空格隔开 
 short_opts = "hle:t:p:cu:"
 
+
+
 def usage():
+    """工具使用说明
+    """
     print("NET工具盒子=w=:")
-    print("version:{0} updated data:{1}".format(uclient._version,uclient._updateDate))
+    #print(f"version:{uclient._version} updated data:{uclient._updateDate}")
     print("使用说明:")
     print("-h --help - 帮助信息喵")
     print("-l --listen - listen on[host]:[port]")
     print("-e --execute")
     print("-c --commandshell")
     print("-u --upload")
+def listen_func(ip):
+    """指定连接 
+
+    Args:
+        ip (_type_): _description_
+    """
+    pass
+
+def upload_func(local_path,server_path):
+    """上传功能
+
+    Args:
+        local_path (str): 本地路径
+        server_path (str): 服务器的路径
+    """
+
+    pass
 
 def panel():
     if not len(sys.argv[1:]):
@@ -35,7 +57,7 @@ def panel():
             usage()
             sys.exit()
         elif o in ("-l","--listen"):
-            uclient.Listen = True
+            listen_func()
         elif o in ("-e","--execute"):
             uclient.execute = a
         elif o in ("-c","--commandshell"):
@@ -52,6 +74,21 @@ def panel():
             assert False,"unhandled option"
     uclient._debug_status("main")
     #openShell()
-panel()
+
+def __debug__():
+    print("listen = "+str(Listen))
+    print("command = "+str(command))
+    print("upload = "+str(upload))
+    print("execute = "+str(execute))
+    print("target = "+str(target))
+    print("upload_dest = "+str(upload_destination))
+    print("port = "+str(port))
+    print("debugModel = "+str(_debugModel))
+    print(" \n")
+
+if __name__ == "main":
+    panel()
+
+
 
  

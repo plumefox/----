@@ -48,7 +48,7 @@ def run_command(command):
 def client_handler(client_socket):
     global execute
     global command
-    
+
 
     #如果给定了保存的地址
     if(len(upload_destination)):
