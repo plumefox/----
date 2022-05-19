@@ -9,7 +9,7 @@ class LuckyGirl:
     """
     def __init__(self,ip,port) -> None:
         self.ip = ip
-        self.port = port
+        self.port = 9999
         self.passport = 1234
         self.choose = {
             'upload':self.upload,
@@ -31,8 +31,8 @@ class LuckyGirl:
         src_path = msg[0]
         dst_path = msg[1]
         file_buffer = ""
-        print(f"src = {src_path}")
-        print(f"dst = {dst_path}")
+        # print(f"src = {src_path}")
+        # print(f"dst = {dst_path}")
         
         if(len(src_path)):
             try:
@@ -45,16 +45,17 @@ class LuckyGirl:
                 data = [dst_path,file_buffer]
                 packet.append(data)
                 print(str(packet))
+                self.direct_send(packet)
                 
                 #self.socket.send(file_buffer)
                 return True
                     
-            except:
-                raise('read exception')
+            except Exception as e:
+                print(e)
         
         return False
     def execute_command(self,msg):
-        """直接执行对应的系列命令,然后接收or不接收结果
+        """直接执行对应的系列命令,然后接收or不接收结果 要么直接执行文件内容的命令 这里以直接单行
 
         Args:
             msg (list): [type,save_path,command],type:0 or 1,0为不接受结果,1为接收返回结果
@@ -104,9 +105,9 @@ class LuckyGirl:
         """
         self.socket = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
         try:
-            self.socket.connect(self.ip,self.port)
+            self.socket.connect((self.ip,self.port))
             #对密码
-            self.socket.send(self.passport)
+            #self.socket.send(self.passport)
            
         except Exception as e:
             print("[*] Exception ! Exiting.")
@@ -135,14 +136,17 @@ class LuckyGirl:
         # 执行对应的命令 从字典选取对应的type的func，然后第二个参数的传递的信息
         try:
             out = self.choose[type](msg)
-        except:
-            pass
+        except Exception as e:
+            print(e)
+        
+        # self.disconnet_server()
     
     def disconnet_server(self):
         self.socket.close()
 
 
 if __name__ == "__main__":
-    a = LuckyGirl('192.168.1.1','80')
-    a.send_msg('upload',['test.txt','dst.py'])
+    a = LuckyGirl('127.0.0.1','9999')
+    a.connect_server()
+    a.send_msg('upload',['test.txt','save2.txt'])
     #a.choose['upload']()
