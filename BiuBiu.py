@@ -45,7 +45,11 @@ def listen_master(ip = "0.0.0.0",port = 12345):
         
 
 def handler(master_socket):
-    
+    """服务端处理
+
+    Args:
+        master_socket (_type_): socket
+    """
     buffer = ""
     # 持续接收数据
     while True:
@@ -89,8 +93,5 @@ def upload(msg):
             except Exception as e:
                 print('read exception')
 
-
-
-
-
-
+def open_shell():
+    pass
