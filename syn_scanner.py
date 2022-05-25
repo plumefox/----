@@ -1,27 +1,29 @@
 from scapy.all import sr1,TCP,IP
-import threading
 import ipaddress
 import time
-import queue
 import logging
-logging.getLogger("scapy.runtime").setLevel(logging.ERROR)
+import multiprocessing 
+import os
+from tqdm import tqdm
 HOST = "10.211.55.17"
-TARGET = "10.211.55.0/24"
-MAX_THREADS = 5 #最大线程数量
-POOL = threading.Semaphore(value = MAX_THREADS)
-UPHOSTS = queue.Queue()
-L  = [20,21,22,23,80,443,231,254]
+TARGET = "10.211.55.0/27"
+MAX_THREADS = 32 #最大线程数量
+logging.getLogger("scapy.runtime").setLevel(logging.ERROR)
 
-def save_log():
-    fileName = "test.txt"
+
+L  = [20,21,22,23,80,443,231,254,65534]
+
+def save_log(result,fileName):
     try:
         with open(fileName,"w") as f:
-            while not UPHOSTS.empty():
-                u = UPHOSTS.get()
-                print(u)
+            for r in result:
+                msg = ""
+                u = r.get()
                 ip = u[0] # 192.168.1.1
+                if(u[1] == []):
+                    continue
                 port = ",".join(map(str,u[1])) # 21,22...
-                msg = f'{ip}\n{port}'
+                msg = f'{ip}\t{port}\n'
                 f.writelines(msg)
             f.close()
     except Exception as e:
@@ -38,10 +40,11 @@ def syn_scan(target_ip,portList=None):
     Returns:
         list: 端口开放列表
     """
+    # print(f"process:{os.getgid()} {multiprocessing.current_process()}")
     uphosts = []
     #全扫描
     if(portList is None):
-        portList = list(range(0,255))
+        portList = list(range(0,65535))
         
     for port in portList:
         ans = sr1(IP(dst=target_ip) / TCP(dport=port), timeout=1, verbose=0)
@@ -49,39 +52,27 @@ def syn_scan(target_ip,portList=None):
             uphosts.append(port)
             print(f"host up {target_ip}:{port}")
         else:
-            print(f"host down {target_ip}:{port}")
-    return uphosts
+            pass
+    # result_queue.put([target_ip,uphosts])
+    return [target_ip,uphosts]
 
-class mythread(threading.Thread):
-    def __init__(self,*args):
-        threading.Thread.__init__(self)
-        self.ip = args[0]
-        self.portList = args[1]
-        self._stop_event = threading.Event()
 
-    def run(self):
-        self.result = syn_scan(self.ip,self.portList)
-        UPHOSTS.put([self.ip,self.result])
-        POOL.release()
-      
-    def stop(self):
-        self._stop_event.set()
-    
-    def getresult(self):
-        return self.result
-
-def run(subnet,portList=None):
-    #子网
-    for ip in ipaddress.ip_network(subnet).hosts():
-        print(f"ip {ip}")
-        POOL.acquire()
-        t = mythread(str(ip),portList)
-        t.start()
 
 if __name__ == "__main__":
     a = time.time()
+    fileName = f"{int(a)}.txt"
+    result_list = []
+    # UPHOSTS = multiprocessing.Manager().Queue()
+    pool = multiprocessing.Pool(MAX_THREADS)
+    print(f"Start Process...")
+    addrcount = ipaddress.ip_network(TARGET).num_addresses
+    #子网
+    for ip in ipaddress.ip_network(TARGET).hosts():
+        result_list.append(pool.apply_async(syn_scan,args=(str(ip),L)))
     
-    run(TARGET,L)
-    save_log()
+    pool.close()
+    pool.join()
+    save_log(result_list,fileName)
+    
     b = time.time()
     print(f"time:{b-a}")
