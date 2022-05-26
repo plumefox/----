@@ -4,7 +4,6 @@ import time
 import logging
 import multiprocessing 
 import os
-from tqdm import tqdm
 HOST = "10.211.55.17"
 TARGET = "10.211.55.0/27"
 MAX_THREADS = 32 #最大线程数量
