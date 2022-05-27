@@ -2,4 +2,4 @@
 *.ini
 *.json
 ignore/
-modules/
+*/config/
