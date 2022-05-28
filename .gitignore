@@ -1,5 +1,6 @@
 *.txt
 *.ini
 *.json
+*.bat
 ignore/
 */config/
